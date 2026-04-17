@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shader Gradient Background</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    html, body, #root {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: transparent;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  
+  <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "@shadergradient/react": "https://esm.sh/@shadergradient/react@2.0.1",
+        "three": "https://esm.sh/three@0.154.0",
+        "three-stdlib": "https://esm.sh/three-stdlib@2.23.10",
+        "camera-controls": "https://esm.sh/camera-controls@2.7.2",
+        "@react-three/fiber": "https://esm.sh/@react-three/fiber@8.13.0?external=react,three"
+      }
+    }
+  </script>
+  
+  <script type="module">
+    import React from 'react';
+    import { createRoot } from 'react-dom/client';
+    import { ShaderGradientCanvas, ShaderGradient } from '@shadergradient/react';
+
+    // Твій градієнт — можеш змінювати URL string з shadergradient.co/customize
+    const GRADIENT_URL = 'https://www.shadergradient.co/customize?animate=on&axesHelper=off&brightness=1.3&cAzimuthAngle=180&cDistance=3.6&cPolarAngle=90&cameraZoom=1&color1=%23005000&color2=%23009200&color3=%233bff00&envPreset=city&fov=45&grain=on&lightType=3d&pixelDensity=0.9&positionX=-1.4&positionY=0&positionZ=0&reflection=0.1&rotationX=0&rotationY=10&rotationZ=50&type=plane&uAmplitude=1&uDensity=3.7&uFrequency=5.5&uSpeed=0.2&uStrength=1.3&wireframe=false';
+
+    function App() {
+      return React.createElement(
+        ShaderGradientCanvas,
+        {
+          style: {
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%'
+          },
+          pixelDensity: 1,
+          fov: 45
+        },
+        React.createElement(ShaderGradient, {
+          control: 'query',
+          urlString: GRADIENT_URL
+        })
+      );
+    }
+
+    const root = createRoot(document.getElementById('root'));
+    root.render(React.createElement(App));
+  </script>
+</body>
+</html>

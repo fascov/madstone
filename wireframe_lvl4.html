@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wireframe lvl3</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a1a; overflow: hidden; width: 100vw; height: 100vh; }
+  canvas { display: block; }
+  #loading {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: rgba(255,255,255,0.35); font-family: monospace; font-size: 13px;
+    background: #1a1a1a; z-index: 10; transition: opacity 0.6s;
+  }
+</style>
+</head>
+<body>
+<div id="loading">завантаження...</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x1a1a1a, 1);
+document.body.appendChild(renderer.domElement);
+
+const scene  = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.001, 1000);
+camera.position.set(0, 0, 5);
+
+let mouseX = 0, mouseY = 0;
+document.addEventListener('mousemove', (e) => {
+  mouseX = (e.clientX / window.innerWidth  - 0.5) * 2;
+  mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
+});
+
+const wireMat = new THREE.LineBasicMaterial({
+  color: 0xffffff, transparent: true, opacity: 0.22,
+  depthWrite: false, blending: THREE.AdditiveBlending,
+});
+
+const dotMat = new THREE.ShaderMaterial({
+  uniforms: { uColor: { value: new THREE.Color(0xffffff) } },
+  vertexShader: `
+    void main() {
+      gl_Position  = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      gl_PointSize = 5.0;
+    }
+  `,
+  fragmentShader: `
+    uniform vec3 uColor;
+    void main() {
+      float d = length(gl_PointCoord - 0.5);
+      if (d > 0.5) discard;
+      float a = smoothstep(0.5, 0.1, d);
+      gl_FragColor = vec4(uColor, a * 0.95);
+    }
+  `,
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+});
+
+const group = new THREE.Group();
+scene.add(group);
+
+fetch('https://cdn.jsdelivr.net/gh/fascov/madstone@main/lvl3.glb')
+  .then(r => r.arrayBuffer())
+  .then(buf => {
+    new GLTFLoader().parse(buf, '', (gltf) => {
+
+      // Обчислюємо реальний bbox ДО нормалізації
+      const box    = new THREE.Box3().setFromObject(gltf.scene);
+      const center = box.getCenter(new THREE.Vector3());
+      const size   = box.getSize(new THREE.Vector3());
+      const maxDim = Math.max(size.x, size.y, size.z);
+
+      console.log('Model size:', size, 'maxDim:', maxDim);
+
+      // Нормалізуємо до висоти ~2 одиниці
+      const ns = 2.0 / maxDim;
+
+      gltf.scene.traverse(child => {
+        if (!child.isMesh) return;
+        const g = child.geometry;
+
+        group.add(new THREE.Mesh(g, new THREE.MeshBasicMaterial({
+          color: 0xffffff, transparent: true, opacity: 0.02,
+          depthWrite: false, side: THREE.DoubleSide,
+        })));
+        group.add(new THREE.LineSegments(new THREE.WireframeGeometry(g), wireMat));
+
+        const dg = new THREE.BufferGeometry();
+        dg.setAttribute('position', g.getAttribute('position'));
+        group.add(new THREE.Points(dg, dotMat));
+      });
+
+      group.scale.setScalar(ns);
+      group.position.set(-center.x * ns, -center.y * ns, -center.z * ns);
+
+      // Авто-підбір відстані камери щоб модель завжди влазила в екран
+      const fovRad   = THREE.MathUtils.degToRad(camera.fov);
+      const aspect   = camera.aspect;
+      const halfSize = 1.2; // половина нормалізованого розміру + запас
+      const distY    = halfSize / Math.tan(fovRad / 2);
+      const distX    = halfSize / (Math.tan(fovRad / 2) * aspect);
+      const dist     = Math.max(distY, distX) + 0.5;
+
+      camera.position.set(0, 0, dist);
+      camera.near = dist * 0.01;
+      camera.far  = dist * 10;
+      camera.updateProjectionMatrix();
+
+      console.log('Camera distance:', dist.toFixed(2));
+
+      document.getElementById('loading').style.opacity = '0';
+    });
+  })
+  .catch(e => console.error('Fetch error:', e));
+
+let autoY = 0;
+const BX  = THREE.MathUtils.degToRad(-20);
+
+(function animate() {
+  requestAnimationFrame(animate);
+  if (group.children.length) {
+    autoY += 0.003;
+    group.rotation.y = autoY + mouseX * 0.25;
+    group.rotation.x = BX    - mouseY * 0.12;
+  }
+  renderer.render(scene, camera);
+})();
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
